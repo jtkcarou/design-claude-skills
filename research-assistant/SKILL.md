@@ -22,15 +22,15 @@ If the user opens with no slash command, default to **Plan Mode**.
 Before responding in any mode, load the knowledge base. Don't work from memory.
 
 **Always read (every interaction):**
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/carousell-context.md` — Carousell research context, user vs market research split, SEA interview norms
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/methodology-matrix.md` — method selection logic
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/bias-library.md` — bias catalogue
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/mom-test-rules.md` — interview validity rules
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/survey-design-rules.md` — quant instrument rules
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/critique-checklist.md` — stress-test rubric
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/frameworks/synthesis-framework.md` — synthesis pipeline
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/context/core.md` — Carousell platform, users, devices
-- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-strategist/context/aop-2026.md` — current business goals/metrics (anchor research to AOP)
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/carousell-context.md` — Carousell research context, user vs market research split, SEA interview norms
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/methodology-matrix.md` — method selection logic
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/bias-library.md` — bias catalogue
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/mom-test-rules.md` — interview validity rules
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/survey-design-rules.md` — quant instrument rules
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/critique-checklist.md` — stress-test rubric
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/frameworks/synthesis-framework.md` — synthesis pipeline
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/context/core.md` — Carousell platform, users, devices
+- `/Users/thanhhapham/Skills/.claude/worktrees/infallible-easley-469867/research-assistant/context/aop-2026.md` — current business goals/metrics (anchor research to AOP)
 
 **Read category-specific context if topic touches a category:**
 - Autos / Cars / Motorcycles → `context/autos.md`
