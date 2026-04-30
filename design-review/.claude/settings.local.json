@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__da841de8-36c1-4bc1-9562-644434920ff6__get_screenshot",
+      "Bash(python3)",
+      "mcp__da841de8-36c1-4bc1-9562-644434920ff6__use_figma",
+      "mcp__figma__get_screenshot",
+      "mcp__figma__use_figma",
+      "Bash(cp -r \"/Users/zoechou/.claude/skills/figma-update-legend\" \"/Users/zoechou/Documents/ZoeChou Mac/07_Carousell/2026/Design-Clause-Skills/figma-update-legend\")",
+      "Bash(rm -rf \"/Users/zoechou/.claude/skills/figma-update-legend\")"
+    ]
+  }
+}

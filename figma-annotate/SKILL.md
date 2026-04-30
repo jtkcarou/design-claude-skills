@@ -1,6 +1,6 @@
 # figma-annotate
 
-Place numbered annotation callouts directly on a Figma frame — for design review findings or engineering specs. Markers appear ON the design elements they reference; a legend panel appears immediately to the right.
+Place numbered annotation callouts directly on a Figma frame — for design review findings or engineering specs. Markers form a vertical column at the right edge of the frame; a horizontal connector line links each marker back to the element it references.
 
 ---
 
@@ -52,20 +52,27 @@ target.appendChild(overlay);
 page.appendChild(markerFrame); // DON'T DO THIS
 ```
 
-### Rule 3 — Keep nodes under 40 per `use_figma` call
+### Rule 3 — Always disable clipping on the target frame
+Frames default to `clipsContent = true`. The dots live just outside the right edge (`dotX = target.width + D - 2`), so they're invisible until clipping is disabled.
+
+```js
+target.clipsContent = false; // REQUIRED — otherwise dots at right edge are clipped
+```
+
+### Rule 4 — Keep nodes under 40 per `use_figma` call
 - ~20 nodes for 10 markers (1 ellipse + 1 text each)
 - ~8 nodes for legend panel (1 frame + 1 text node)
 - **Always split into two calls:** Call A = markers, Call B = legend panel
 - Use a **single multiline text node** for the legend body — NOT individual card frames per finding
 
-### Rule 4 — Max 2 font loads per call
+### Rule 5 — Max 2 font loads per call
 ```js
 await figma.loadFontAsync({ family: "Inter", style: "Bold" });
 await figma.loadFontAsync({ family: "Inter", style: "Regular" });
 // Do NOT load more than 2 fonts per call
 ```
 
-### Rule 5 — Always find the correct page before writing
+### Rule 6 — Always find the correct page before writing
 ```js
 let targetPage = null, target = null;
 for (const pg of figma.root.children) {
@@ -76,7 +83,7 @@ if (!targetPage) { figma.closePlugin("Node not found"); return; }
 await figma.setCurrentPageAsync(targetPage);
 ```
 
-### Rule 6 — Always clean up before placing new annotations (idempotent)
+### Rule 7 — Always clean up before placing new annotations (idempotent)
 ```js
 // Remove overlay from inside target
 for (let i = target.children.length - 1; i >= 0; i--) {
@@ -88,7 +95,7 @@ const oldPanel = Array.from(target.parent.children).find(n => n.name === "🔍 A
 if (oldPanel) oldPanel.remove();
 ```
 
-### Rule 7 — Marker size must be proportional to frame size
+### Rule 8 — Marker size must be proportional to frame size
 Screenshot thumbnails make all frames look similar, but frame pixel dimensions vary enormously. A D=26 dot is invisible on a 5000px-wide frame.
 
 | Frame width | D (circle diameter) | strokeWeight | fontSize |
@@ -99,17 +106,31 @@ Screenshot thumbnails make all frames look similar, but frame pixel dimensions v
 
 Always read `target.width` from the coordinate-read call (Step 2) and choose D before placing markers.
 
-### Rule 8 — Never place markers at a fixed X column
-Each marker must be centered on the element it references. Do NOT use a shared `cx = target.width - D - 8` column — that stacks all dots at the right edge and makes the annotations useless.
+### Rule 9 — Markers form a right-edge column; connector lines link back to elements
+
+All dots share the same X (just outside the frame's right edge). Only Y varies per marker. A horizontal 1px connector line runs from the element's right edge to the dot.
 
 ```js
-// CORRECT — each marker is centered on its element
-dot.x = rx - D / 2;  // rx from real node position
-dot.y = ry - D / 2;
+// CORRECT — fixed X column, variable Y
+const dotX = target.width + D - 2;      // just past right edge
+dot.x = dotX;
+dot.y = ry - D / 2;                      // ry = element centre Y
 
-// WRONG — all markers share the same X column
-const cx = target.width - D - 8;
-dot.x = cx; // DON'T DO THIS
+// Connector line from element right edge to dot
+const line = figma.createFrame();
+line.name = `line-${n}`;
+line.fills = [{ type: "SOLID", color: { r:1, g:1, b:1 } }];
+line.opacity = 0.25;
+line.resize(dotX - lx, 1);              // lx = element right edge X
+line.x = lx;
+line.y = ry;
+overlay.appendChild(line);
+
+// Overlay must be wider than the frame to contain the dots
+overlay.resize(target.width + D * 3, target.height);
+
+// WRONG — centering each dot on its element hides which column the marker is in
+dot.x = rx - D / 2;  // DON'T DO THIS
 ```
 
 ---
@@ -161,7 +182,9 @@ figma.closePlugin(lines.join("\n"));
 **From the output, map each finding to a specific child node:**
 - Direct children: use `child.x` and `child.y` directly — they're already relative to the target frame
 - Nested grandchildren: compute `frame_relative_x = grandchild_absX - target_absX`, same for Y
-- Center the marker on the element: `rx = child.x + child.width / 2`, `ry = child.y + child.height / 2`
+- For each finding you need two values:
+  - `ry` = element centre Y = `child.y + child.height / 2`
+  - `lx` = element right edge X = `child.x + child.width` (connector line starts here)
 - If a sub-area within a child is relevant (e.g. "bottom bar" inside a phone screen), drill down another level
 
 **If the node tree is too deep to enumerate in one call**, run a second targeted call on the specific child node id to get its grandchildren.
@@ -183,22 +206,24 @@ Read `target.width` from the Step 2 output and set D:
 
 Compile the final list using real coordinates from Step 2:
 
-```
-// Design Review mode: [num, priorityKey, rx, ry, principle]
+```js
+// [num, priorityKey, ry, lx]
+// ry  = element centre Y (frame-relative) — sets the dot's vertical position
+// lx  = element right edge X (frame-relative) — connector line starts here
 // "H" = HIGH, "M" = MEDIUM, "L" = LOW, "E" = Eng Spec
-// principle = short name of the design/UX principle the finding comes from
 const items = [
-  [1, "H", 1430, 1450, "Fitts's Law"],
-  [2, "H", 3275, 2010, "Nielsen H4: Consistency & Standards"],
+  [1, "H", 634, 212],
+  [2, "M", 602, 212],
+  [3, "H", 429, 80],
   ...
 ];
 ```
 
-If two findings land within `D` pixels of each other, stagger one by `D * 1.2` in x or y to avoid overlap.
+If two findings have `ry` values within `D` pixels of each other, stagger them: move one up by `D + 4` and one down by `D + 4` so dots don't overlap. The connector line Y stays at the original element ry (it points to where the element actually is).
 
 ---
 
-### Step 5 — Place markers (Call A, ~20 nodes)
+### Step 5 — Place markers (Call A, ~30 nodes)
 
 ```js
 await figma.loadFontAsync({ family: "Inter", style: "Bold" });
@@ -208,7 +233,7 @@ for (const pg of figma.root.children) {
   const f = pg.findOne(n => n.id === "NODE_ID");
   if (f) { targetPage = pg; target = f; break; }
 }
-if (!target) { figma.closePlugin("not found"); return; }
+if (!target) return { error: "not found" };
 await figma.setCurrentPageAsync(targetPage);
 
 // Clean up existing markers
@@ -223,35 +248,56 @@ const COL = {
   E: { r:0.12, g:0.44, b:0.85 },  // Eng Spec blue
 };
 
-// [num, priorityKey, rx, ry, principle] — rx/ry are frame-relative pixel positions from Step 2
+// [num, priorityKey, ry, lx]
+// ry = element centre Y (frame-relative) — dot Y position
+// lx = element right edge X (frame-relative) — connector line starts here
 const items = [
-  // REPLACE WITH ACTUAL VALUES
+  // REPLACE WITH ACTUAL VALUES FROM STEP 2
 ];
 
 // REPLACE D, SW, FS based on target.width (see Step 3)
-const D = 80, SW = 4, FS = 34;
+const D = 26, SW = 2, FS = 12;
 
+// Allow content to extend past the frame boundary (dots live outside the right edge)
+target.clipsContent = false;
+
+// Overlay is wider than the frame so dots can extend outside the right edge
 const overlay = figma.createFrame();
 overlay.name = "📍 Annotation Markers";
 overlay.fills = [];
 overlay.clipsContent = false;
-overlay.resize(target.width, target.height);
+overlay.resize(target.width + D * 3, target.height);
 overlay.x = 0; overlay.y = 0;
 target.appendChild(overlay);
 
-for (const [n, p, rx, ry] of items) {
+// Fixed X column — all dots just past the frame's right edge
+const dotX = target.width + D - 2;
+
+for (const [n, p, ry, lx] of items) {
   const c = COL[p];
 
+  // Connector line: thin white line from element right edge to dot column
+  const line = figma.createFrame();
+  line.name = `line-${n}`;
+  line.fills = [{ type: "SOLID", color: { r:1, g:1, b:1 } }];
+  line.opacity = 0.25;
+  line.resize(dotX - lx, 1);
+  line.x = lx;
+  line.y = ry;
+  overlay.appendChild(line);
+
+  // Dot
   const dot = figma.createEllipse();
   dot.name = `● ${n}`;
   dot.resize(D, D);
-  dot.x = rx - D / 2;
+  dot.x = dotX;
   dot.y = ry - D / 2;
   dot.fills = [{ type: "SOLID", color: c }];
   dot.strokes = [{ type: "SOLID", color: { r:1, g:1, b:1 } }];
   dot.strokeWeight = SW;
   overlay.appendChild(dot);
 
+  // Number label
   const t = figma.createText();
   t.name = `# ${n}`;
   t.characters = String(n);
@@ -261,12 +307,12 @@ for (const [n, p, rx, ry] of items) {
   t.textAlignHorizontal = "CENTER";
   t.textAlignVertical = "CENTER";
   t.resize(D, D);
-  t.x = rx - D / 2;
+  t.x = dotX;
   t.y = ry - D / 2;
   overlay.appendChild(t);
 }
 
-figma.closePlugin("Markers placed");
+return { createdNodeIds: [overlay.id], markerCount: items.length };
 ```
 
 ---
@@ -373,7 +419,7 @@ for (const [s, e] of principleRanges) {
 }
 
 panel.resize(PW, t.height + 64);
-figma.closePlugin("Legend panel placed");
+return { createdNodeIds: [panel.id] };
 ```
 
 ---
@@ -381,8 +427,9 @@ figma.closePlugin("Legend panel placed");
 ### Step 7 — Verify
 
 - Call `get_screenshot` on the target frame node
-- Confirm numbered circles are **ON the design elements** they reference, not stacked at the right edge
-- Confirm circles are large enough to be visible (if they look tiny, D was too small — re-run with larger D)
+- Confirm numbered circles form a **vertical column at the right edge** of the frame, each at the Y of its element
+- Confirm thin connector lines run horizontally from each element to its dot
+- Confirm circles are large enough to be visible (if tiny, D was too small — re-run with larger D)
 - Legend panel is to the right of the frame (won't appear in the node screenshot — that's expected)
 - If markers are missing: check that `overlay` was appended via `target.appendChild()`, not `page.appendChild()`
 - If legend is in wrong place: verify `target.parent.appendChild(panel)` was used, not `page.appendChild(panel)`
@@ -416,8 +463,11 @@ Always use these names exactly (enables idempotent cleanup):
 | Mistake | Effect | Fix |
 |---------|--------|-----|
 | Estimating positions from screenshot pixels | Off by 6–7× because screenshot is scaled | Always read real coords via `use_figma` first |
-| All markers at `cx = target.width - D - 8` | All dots stacked at right edge, not on elements | Use per-marker `rx, ry` from real node positions |
+| Centering each dot on its element (variable X) | Dots scattered across the frame, hard to read | Fixed X column at `target.width + D - 2`; vary Y only |
+| No connector lines | Unclear which dot maps to which element | Add thin 1px white frame from `lx` to `dotX` at `ry` |
+| `overlay.resize(target.width, target.height)` | Dots outside frame are clipped | Make overlay wider: `target.width + D * 3` |
 | D=26 on a 5000px-wide frame | Dots invisible at frame scale | Scale D to frame width (see Rule 7) |
 | `page.appendChild(panel)` + absoluteTransform for legend | Panel appears far from frame when nested | Use `target.parent.appendChild(panel)` + `target.x + target.width + 48` |
-| 50–100 nodes in one `use_figma` call | Stream timeout before completion | Split: Call A = markers (~20 nodes), Call B = legend (~8 nodes) |
+| 50–100 nodes in one `use_figma` call | Stream timeout before completion | Split: Call A = markers (~30 nodes), Call B = legend (~8 nodes) |
 | One text node per finding in legend | 30–50 extra nodes → timeout | Single multiline text block for entire legend |
+| `target.clipsContent` left as `true` | Dots at right edge (x > frame width) invisible — clipped by frame boundary | Set `target.clipsContent = false` before placing overlay |
